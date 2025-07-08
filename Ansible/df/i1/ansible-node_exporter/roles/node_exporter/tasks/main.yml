@@ -1,0 +1,55 @@
+---
+- name: Set node_exporter version
+  set_fact:
+    node_exporter_version: "1.8.1"
+
+- name: Set architecture
+  set_fact:
+    architecture: "amd64"
+
+- name: Check if node_exporter binary already exists
+  stat:
+    path: "/usr/local/bin/node_exporter"
+  register: node_exporter_binary
+
+- name: Download and unarchive node_exporter
+  when: not node_exporter_binary.stat.exists
+  block:
+    - name: Download node_exporter
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ architecture }}.tar.gz"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ architecture }}.tar.gz"
+        mode: '0644'
+
+    - name: Unarchive node_exporter
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ architecture }}.tar.gz"
+        dest: "/tmp/"
+        remote_src: yes
+
+    - name: Move node_exporter binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ architecture }}/node_exporter"
+        dest: "/usr/local/bin/node_exporter"
+        remote_src: yes
+        mode: '0755'
+        owner: root
+        group: root
+
+- name: Create node_exporter systemd service file
+  template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and start node_exporter service
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: started
+    enabled: yes
