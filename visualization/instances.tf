@@ -19,6 +19,10 @@ resource "aws_instance" "monitoring" {
     source      = "script.sh"
     destination = "/tmp/script.sh"
   }
+  provisioner "promconfig" {
+    source      = "prometheus.yml"
+    destination = "/tmp/prometheus.yml"
+  }
   provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/script.sh",
