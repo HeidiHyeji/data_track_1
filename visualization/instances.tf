@@ -32,6 +32,6 @@ resource "aws_instance" "monitoring" {
   }
 
   tags = {
-    Name        = 'm1'
+    Name        = "m1"
   }
 }
