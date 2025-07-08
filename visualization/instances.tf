@@ -8,7 +8,7 @@ resource "aws_key_pair" "monitoring_key" {
 
 resource "aws_instance" "monitoring" {
   ami           = lookup(var.AMIS, var.AWS_REGION)
-  instance_type = t2.small
+  instance_type = "t2.small"
   key_name      = aws_key_pair.monitoring_key.key_name
   vpc_security_group_ids = [aws_security_group.allow_monitoring.id]
   root_block_device{
