@@ -1,0 +1,41 @@
+- name: Stop any running NameNode daemon
+  command: /opt/hadoop/bin/hdfs --daemon stop namenode
+  ignore_errors: yes
+  when: "'namenodes' in group_names"
+
+- name: Stop any running DataNode daemon
+  command: /opt/hadoop/bin/hdfs --daemon stop datanode
+  ignore_errors: yes
+  when: "'datanodes' in group_names"
+  environment:
+    PATH: "/opt/hadoop/bin:/opt/hadoop/sbin:{{ ansible_env.PATH }}"
+
+- name: Format NameNode
+  shell: echo "Y" | /opt/hadoop/bin/hdfs namenode -format
+  when: "'namenodes' in group_names"
+
+# 데이터노드 먼저 시작
+- name: Start DataNode daemon with nohup
+  shell: nohup /opt/hadoop/bin/hdfs --daemon start datanode &
+  register: datanode_start
+  until: datanode_start.rc == 0
+  retries: 5
+  delay: 10
+  when: "'datanodes' in group_names"
+
+# 네임노드 시작은 그 이후
+- name: Start NameNode daemon with nohup
+  shell: nohup /opt/hadoop/bin/hdfs --daemon start namenode &
+  register: namenode_start
+  when: "'namenodes' in group_names"
+
+- name: Wait for DataNode to be ready
+  pause:
+    seconds: 10
+  when: "'datanodes' in group_names"
+
+- name: Verify Hadoop setup by listing root directory
+  command: /opt/hadoop/bin/hadoop fs -ls /
+  register: hdfs_check
+  when: "'namenodes' in group_names"
+
