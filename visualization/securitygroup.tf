@@ -1,4 +1,4 @@
-﻿resource "aws_security_group" "allow_monitoring" {
+resource "aws_security_group" "allow_monitoring" {
   # vpc_id      = aws_vpc.main.id
   name        = "allow-monitoring"
   description = "security group that allows prometheus, grafana and all egress traffic"
