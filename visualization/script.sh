@@ -12,6 +12,7 @@ dnf install -y net-tools vim
 # install prometheus
 wget https://github.com/prometheus/prometheus/releases/download/v3.4.2/prometheus-3.4.2.linux-amd64.tar.gz
 tar -xzf prometheus-3.4.2.linux-amd64.tar.gz
+mv prometheus-3.4.2.linux-amd64 prometheus
 cd prometheus
 
 tmux new-session -d -s prometheus ./prometheus --config.file=prometheus.yml
