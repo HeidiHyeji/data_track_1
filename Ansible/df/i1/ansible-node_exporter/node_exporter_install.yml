@@ -1,0 +1,5 @@
+- name: Install and Configure node_exporter
+  hosts: monitoring_targets
+  become: yes
+  roles:
+    - node_exporter
