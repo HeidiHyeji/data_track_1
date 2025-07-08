@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # sleep until cloud-init is finished
 until [ -f /var/lib/cloud/instance/boot-finished ]; do
