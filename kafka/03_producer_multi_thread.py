@@ -19,7 +19,7 @@ TOPIC = "fms-sensor-data"
 API_BASE_URL = "http://finfra.iptime.org:9872"
 DEVICE_IDS = list(range(1, 101))  # 1~100번 장비
 FETCH_INTERVAL = 10  # 10초 간격
-MAX_WORKERS = 10  # 병렬 스레드 수
+MAX_WORKERS = 5  # 병렬 스레드 수
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
