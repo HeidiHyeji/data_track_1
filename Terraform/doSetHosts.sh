@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 기존 hosts에서 vm0 포함된 라인 제거
-cat /etc/hosts |grep -v \ s>~/.tmp
+cat /etc/hosts | grep -vE '^(s|m1)' > ~/.tmp
 sudo cp ~/.tmp /etc/hosts
 
 # EC2 인스턴스 ID와 Name 태그 추출
@@ -16,7 +16,7 @@ for i in $ec2IdsAndName; do
   ec2Name=$(echo $i | awk 'BEGIN{FS=","}{printf $2}')
 
   # ec2Name이 s로 시작하면 Private IP, 아니면 Public IP 사용
-  if [[ $ec2Name == s* ]]; then
+  if [[ $ec2Name == s* || $ec2Name == "m1" ]]; then
     ip=$(aws ec2 describe-instances --instance-ids $ec2id \
       --query 'Reservations[*].Instances[*].PrivateIpAddress' --output text)
   else
