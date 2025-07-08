@@ -15,6 +15,10 @@ tar -xzf prometheus-3.4.2.linux-amd64.tar.gz
 mv prometheus-3.4.2.linux-amd64 prometheus
 cd prometheus
 
+# copy prometheus.yml config from the local machine
+mv ~/tmp/prometheus.yml ~/prometheus/prometheus.yml
+
+# create a tmux session for prometheus
 tmux new-session -d -s prometheus ./prometheus --config.file=prometheus.yml
 
 # install grafana
