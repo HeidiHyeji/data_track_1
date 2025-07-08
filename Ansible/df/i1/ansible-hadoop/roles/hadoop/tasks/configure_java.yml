@@ -1,0 +1,35 @@
+- name: Install Amazon Corretto Java 1.8
+  package:
+    name: java-1.8.0-amazon-corretto-devel
+    state: present
+
+- name: Set JAVA_HOME in /etc/profile.d/java.sh
+  lineinfile:
+    path: /etc/profile.d/java.sh
+    line: 'export JAVA_HOME=/usr/lib/jvm/java-1.8.0-amazon-corretto'
+    create: yes
+
+- name: Add JAVA_HOME to PATH in /etc/profile.d/java.sh
+  lineinfile:
+    path: /etc/profile.d/java.sh
+    line: 'export PATH=$JAVA_HOME/bin:$PATH'
+    create: yes
+
+- name: Source Java environment
+  shell: source /etc/profile.d/java.sh
+  args:
+    executable: /bin/bash
+
+- name: Ensure JAVA_HOME is set in /etc/environment
+  lineinfile:
+    path: /etc/environment
+    regexp: '^JAVA_HOME='
+    line: 'JAVA_HOME=/usr/lib/jvm/java-1.8.0-amazon-corretto'
+    create: yes
+
+- name: Ensure JAVA_HOME is in PATH in /etc/environment
+  lineinfile:
+    path: /etc/environment
+    regexp: '^PATH='
+    line: 'PATH="$PATH:/usr/lib/jvm/java-1.8.0-amazon-corretto/bin"'
+    backrefs: yes
