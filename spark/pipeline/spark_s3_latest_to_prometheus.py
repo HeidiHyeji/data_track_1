@@ -8,7 +8,7 @@ from prometheus_client import start_http_server, Gauge
 # --- 설정 ---
 S3_DATA_PATH = "s3a://awsprelab1/fms/analytics_parquet/data"
 PROMETHEUS_PORT = 9990  # 이전 스크립트와 다른 포트 사용
-REFRESH_INTERVAL_SECONDS = 10  # 10초마다 데이터 갱신
+REFRESH_INTERVAL_SECONDS = 30  # 30초마다 데이터 갱신
 
 # --- 프로메테우스 메트릭 정의 ---
 # 'device_id'를 라벨로 사용하여 장비별 최신 값을 구분
@@ -30,7 +30,7 @@ def update_latest_metrics(spark):
         df = spark.read.parquet(S3_DATA_PATH)
 
         # 2. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
-        window_spec = Window.partitionBy("DeviceId").orderBy(col("time").desc())
+        window_spec = Window.partitionBy("DeviceId","ymdh").orderBy(col("time").desc())
         df_latest = df.withColumn("rank", row_number().over(window_spec)) \
                       .filter(col("rank") == 1) \
                       .drop("rank")
