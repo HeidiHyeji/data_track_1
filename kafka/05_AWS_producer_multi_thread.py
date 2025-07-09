@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-FMS Real Data Producer
-실제 API에서 FMS 센서 데이터를 수집하여 Kafka로 전송 (10개 병렬 처리)
+FMS Real Data Producer (Kinesis 버전)
+실제 API에서 FMS 센서 데이터를 수집하여 AWS Kinesis로 전송 (10개 병렬 처리)
 """
 import json
 import time
 import requests
-from confluent_kafka import Producer
+import boto3
 from datetime import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Kafka 설정
-BROKER = "s1:9092,s2:9092,s3:9092"
-TOPIC = "fms-sensor-data"
+# Kinesis 설정
+KINESIS_STREAM_NAME = "fms-sensor-data-kinesis"
+kinesis_client = boto3.client('kinesis', region_name='ap-northeast-1')  # 도쿄 리전
 
 # FMS API 설정
 API_BASE_URL = "http://finfra.iptime.org:9872"
@@ -27,12 +27,7 @@ logger = logging.getLogger(__name__)
 
 class FMSDataProducer:
     def __init__(self):
-        self.producer = Producer({
-            'bootstrap.servers': BROKER,
-            'compression.type': 'gzip',
-            'batch.size': 16384,
-            'linger.ms': 10
-        })
+        pass  # Kinesis는 별도 연결 필요 없음
 
     def fetch_device_data(self, device_id):
         """특정 장비의 데이터를 API에서 가져오기"""
@@ -68,32 +63,24 @@ class FMSDataProducer:
 
         return True
 
-    def send_to_kafka(self, data):
-        """Kafka로 데이터 전송"""
+    def send_to_kinesis(self, data):
+        """Kinesis로 데이터 전송"""
         try:
-            key = str(data['DeviceId'])
-            value = json.dumps(data, ensure_ascii=False)
+            partition_key = str(data['DeviceId'])
+            payload = json.dumps(data, ensure_ascii=False)
 
-            self.producer.produce(
-                topic=TOPIC,
-                key=key,
-                value=value,
-                callback=self.delivery_callback
+            kinesis_client.put_record(
+                StreamName=KINESIS_STREAM_NAME,
+                Data=payload.encode('utf-8'),
+                PartitionKey=partition_key
             )
-            self.producer.poll(0)
+            logger.info(f"Device {data['DeviceId']}: Kinesis 전송 완료")
         except Exception as e:
-            logger.error(f"Kafka send error: {e}")
-
-    def delivery_callback(self, err, msg):
-        """메시지 전송 결과 콜백"""
-        if err:
-            logger.error(f'Message delivery failed: {err}')
-        else:
-            logger.info(f'Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}')
+            logger.error(f"Kinesis send error: {e}")
 
     def run_continuous(self):
         """연속적으로 데이터 수집 및 전송"""
-        logger.info("FMS Data Producer 시작...")
+        logger.info("FMS Data Producer 시작... (Kinesis)")
         logger.info(f"수집 대상: 장비 {DEVICE_IDS}")
         logger.info(f"수집 주기: {FETCH_INTERVAL}초, 병렬 스레드 수: {MAX_WORKERS}")
 
@@ -108,14 +95,12 @@ class FMSDataProducer:
                         try:
                             data = future.result()
                             if data:
-                                self.send_to_kafka(data)
+                                self.send_to_kinesis(data)
                                 logger.info(f"Device {device_id}: 데이터 전송 완료")
                             else:
                                 logger.warning(f"Device {device_id}: 수집 실패")
                         except Exception as e:
                             logger.error(f"Device {device_id}: 에러 발생: {e}")
-
-                self.producer.flush()
 
                 elapsed = time.time() - collection_start
                 sleep_time = max(0, FETCH_INTERVAL - elapsed)
@@ -131,7 +116,6 @@ class FMSDataProducer:
         except Exception as e:
             logger.error(f"예상치 못한 오류: {e}")
         finally:
-            self.producer.flush()
             logger.info("Producer 종료")
 
     def run_once(self):
@@ -148,16 +132,14 @@ class FMSDataProducer:
                     if data:
                         print(json.dumps(data, indent=2, ensure_ascii=False))
                         if self.validate_data(data):
-                            self.send_to_kafka(data)
-                            print("✅ Kafka 전송 완료")
+                            self.send_to_kinesis(data)
+                            print("✅ Kinesis 전송 완료")
                         else:
                             print("❌ 데이터 유효성 검사 실패")
                     else:
                         print("❌ 데이터 수집 실패")
                 except Exception as e:
                     print(f"❌ Device {device_id} 에러: {e}")
-
-        self.producer.flush()
 
 def main():
     import sys

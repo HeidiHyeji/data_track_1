@@ -59,6 +59,12 @@
     line: "export JAVA_HOME={{ java_home_result.stdout }}"
     create: yes
 
+- name: Configure JMX Exporter for Hadoop
+  lineinfile:
+    path: /opt/hadoop/etc/hadoop/hadoop-env.sh
+    line: 'export HADOOP_OPTS="$HADOOP_OPTS -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/opt/jmx_exporter/jmx_config.yml"'
+    create: yes
+
 - name: Configure Hadoop workers file
   copy:
     content: |
