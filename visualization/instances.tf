@@ -19,6 +19,10 @@ resource "aws_instance" "monitoring" {
     source      = "script.sh"
     destination = "/tmp/script.sh"
   }
+  provisioner "grafana_installer" {
+    source      = "install_grafana.sh"
+    destination = "/tmp/install_grafana.sh"
+  }
   provisioner "promconfig" {
     source      = "prometheus.yml"
     destination = "/tmp/prometheus.yml"
@@ -27,6 +31,12 @@ resource "aws_instance" "monitoring" {
     inline = [
       "chmod +x /tmp/script.sh",
       "sudo /tmp/script.sh"
+    ]
+  }
+  provisioner "remote-exec-grafana" {
+    inline = [
+      "chmod +x /tmp/prometheus.sh",
+      "sudo /tmp/prometheus.sh"
     ]
   }
   connection {
