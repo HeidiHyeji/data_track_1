@@ -38,6 +38,9 @@ scrape_configs:
         port: 9100
     relabel_configs:
       - source_labels: [__meta_ec2_tag_Name]
+        regex: s[0-9]+
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
         target_label: instance
       - source_labels: [__meta_ec2_private_ip]
         regex: '(.*)'
