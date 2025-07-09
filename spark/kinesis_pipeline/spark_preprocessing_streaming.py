@@ -4,12 +4,12 @@ from pyspark.sql.types import StructType, StringType, IntegerType, DoubleType, B
 
 # 1. Spark 세션 생성
 spark = SparkSession.builder \
-    .appName("KafkaSparkStreamingPreprocessing") \
+    .appName("FMS_S3_Streaming_Preprocessing") \
     .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
     .config("spark.hadoop.fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain") \
     .getOrCreate()
 
-# 2. Kafka 메시지 스키마 정의
+# 2. 메시지 스키마 정의 (JSON)
 schema = StructType() \
     .add("time", StringType()) \
     .add("DeviceId", IntegerType()) \
@@ -22,24 +22,19 @@ schema = StructType() \
     .add("isFail", BooleanType()) \
     .add("collected_at", StringType())
 
-# 3. Kafka 스트림에서 메시지 읽기
+# 3. S3에서 JSON 스트림 읽기
 df_raw = spark.readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", "s1:9092,s2:9092,s3:9092,i1:9092") \
-    .option("subscribe", "fms-sensor-data") \
-    .load()
+    .format("json") \
+    .schema(schema) \
+    .option("maxFilesPerTrigger", 1) \
+    .load("s3a://awsprelab1/fms/raw-data/")
 
-# 4. JSON 파싱 및 컬럼 정제
-df_json = df_raw.selectExpr("CAST(value AS STRING)") \
-    .select(from_json("value", schema).alias("data")) \
-    .select("data.*")
-
-# 5. 전처리 컬럼 추가
-df = df_json \
+# 4. 전처리 컬럼 추가
+df = df_raw \
     .withColumn("ts", to_timestamp(col("collected_at"))) \
-    .withColumn("ymdh", date_format(col("ts"), "yyyy/MM/dd/HH"))
+    .withColumn("ymdh", date_format(col("ts"), "yyyyMMddHH"))
 
-# 6. 유효성 조건 정의
+# 5. 유효성 조건 정의
 valid_range = (
     (col("sensor1").between(0, 100)) &
     (col("sensor2").between(0, 100)) &
@@ -51,12 +46,12 @@ valid_range = (
     (col("isFail").isin(True, False))
 )
 
-# 7. 조건별 분기
+# 6. 조건별 분기
 df_fail     = df.filter(col("isFail") == True)
 df_dataerr  = df.filter((col("isFail") == False) & (~valid_range))
 df_correct  = df.filter((col("isFail") == False) & valid_range)
 
-# 8. 저장 함수 정의 (Parquet + Snappy 압축)
+# 7. 저장 함수 정의
 def write_stream(target_df, base_path):
     return target_df \
         .writeStream \
@@ -69,12 +64,12 @@ def write_stream(target_df, base_path):
         .trigger(processingTime="30 seconds") \
         .start()
 
-# 9. 각 분기 저장 실행
+# 8. 각 분기 저장 실행
 query_fail = write_stream(df_fail,    "s3a://awsprelab1/fms/analytics_parquet/fail")
 query_err  = write_stream(df_dataerr, "s3a://awsprelab1/fms/analytics_parquet/dataerr")
 query_ok   = write_stream(df_correct, "s3a://awsprelab1/fms/analytics_parquet/data")
 
-# 10. 스트림 실행 유지
+# 9. 스트리밍 유지
 query_fail.awaitTermination()
 query_err.awaitTermination()
 query_ok.awaitTermination()
