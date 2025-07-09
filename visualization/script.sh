@@ -8,6 +8,7 @@ done
 # install net-tools (Amazon Linux uses yum or dnf)
 dnf update -y
 dnf install -y net-tools vim
+sudo yum install -y jq
 
 # install prometheus
 wget https://github.com/prometheus/prometheus/releases/download/v3.4.2/prometheus-3.4.2.linux-amd64.tar.gz
