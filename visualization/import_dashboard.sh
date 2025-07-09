@@ -2,9 +2,9 @@
 
 GRAFANA_URL="http://localhost:3000"
 GRAFANA_USER="admin"
-GRAFANA_PASSWORD="admin"  # 수정 필요
+GRAFANA_PASSWORD="admin"  # 필요시 수정
 SERVICE_ACCOUNT_NAME="auto-import-sa"
-JSON_FILE="1860_rev41.json"
+JSON_FILES=("1860_rev41.json" "fms_dashboard.json")
 FOLDER_ID=0
 OVERWRITE=true
 
@@ -15,7 +15,6 @@ if ! command -v jq &> /dev/null; then
 fi
 
 echo "[1] Check or Create Service Account..."
-# 기존 서비스 계정 목록 조회
 EXISTING_SA=$(curl -s -u "$GRAFANA_USER:$GRAFANA_PASSWORD" "$GRAFANA_URL/api/serviceaccounts" \
   | jq -r ".[] | select(.name==\"$SERVICE_ACCOUNT_NAME\")")
 
@@ -23,7 +22,6 @@ if [[ -n "$EXISTING_SA" ]]; then
   SA_ID=$(echo "$EXISTING_SA" | jq -r '.id')
   echo "🔁 기존 서비스 계정 사용 (ID: $SA_ID)"
 else
-  # 새로 생성
   SA_RESPONSE=$(curl -s -X POST "$GRAFANA_URL/api/serviceaccounts" \
     -u "$GRAFANA_USER:$GRAFANA_PASSWORD" \
     -H "Content-Type: application/json" \
@@ -55,22 +53,31 @@ fi
 
 echo "✅ 토큰 생성 완료"
 
-echo "[3] Import Dashboard..."
+echo "[3] Import Dashboards..."
 
-jq -n \
-  --slurpfile dashboard "$JSON_FILE" \
-  --argjson folderId "$FOLDER_ID" \
-  --argjson overwrite "$OVERWRITE" \
-  '{dashboard: $dashboard[0], folderId: $folderId, overwrite: $overwrite}' > /tmp/dashboard_post.json
+for JSON_FILE in "${JSON_FILES[@]}"; do
+  echo "📄 대시보드 파일: $JSON_FILE 임포트 중..."
 
-IMPORT_RESPONSE=$(curl -s -X POST "$GRAFANA_URL/api/dashboards/db" \
-  -H "Authorization: Bearer $API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @/tmp/dashboard_post.json)
+  if [[ ! -f "$JSON_FILE" ]]; then
+    echo "❗ 파일이 존재하지 않습니다: $JSON_FILE"
+    continue
+  fi
 
-if echo "$IMPORT_RESPONSE" | grep -q '"status":"success"'; then
-  echo "✅ 대시보드 Import 성공"
-else
-  echo "❌ 대시보드 Import 실패"
-  echo "응답: $IMPORT_RESPONSE"
-fi
+  jq -n \
+    --slurpfile dashboard "$JSON_FILE" \
+    --argjson folderId "$FOLDER_ID" \
+    --argjson overwrite "$OVERWRITE" \
+    '{dashboard: $dashboard[0], folderId: $folderId, overwrite: $overwrite}' > /tmp/dashboard_post.json
+
+  IMPORT_RESPONSE=$(curl -s -X POST "$GRAFANA_URL/api/dashboards/db" \
+    -H "Authorization: Bearer $API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d @/tmp/dashboard_post.json)
+
+  if echo "$IMPORT_RESPONSE" | grep -q '"status":"success"'; then
+    echo "✅ $JSON_FILE 임포트 성공"
+  else
+    echo "❌ $JSON_FILE 임포트 실패"
+    echo "응답: $IMPORT_RESPONSE"
+  fi
+done

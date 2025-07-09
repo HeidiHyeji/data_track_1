@@ -31,6 +31,14 @@ resource "aws_instance" "monitoring" {
     source      = "import_dashboard.sh"
     destination = "/tmp/import_dashboard.sh"
   }
+  provisioner "grafana_dashboard_node" {
+    source      = "1860_rev41.json"
+    destination = "/tmp/1860_rev41.json"
+  }
+  provisioner "grafana_dashboard_fms" {
+    source      = "fms_dashboard.json"
+    destination = "/tmp/fms_dashboard.json"
+  }
   provisioner "promconfig" {
     source      = "prometheus.yml"
     destination = "/tmp/prometheus.yml"
