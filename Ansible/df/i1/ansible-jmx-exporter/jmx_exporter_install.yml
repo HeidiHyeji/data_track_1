@@ -1,5 +1,0 @@
-- name: JMX Exporter Installation Playbook
-  hosts: hadoop_cluster
-  become: yes
-  roles:
-    - jmx-exporter

@@ -128,11 +128,6 @@ cat << 'EOF' > $BASE_DIR/roles/kafka/tasks/configure_kafka.yml
     state: present
   when: inventory_hostname in groups['consumer']
 
-- name: Configure JMX Exporter for Kafka
-  ansible.builtin.lineinfile:
-    path: /etc/bashrc
-    line: 'export KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9406:/opt/jmx_exporter/jmx_config.yml"'
-    state: present
 EOF
 
 # Create bashrc.j2
