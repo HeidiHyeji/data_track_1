@@ -36,7 +36,7 @@ def update_latest_metrics(spark):
                       .drop("rank")
         
         df_recent = df_latest.filter(
-            (col("ts") >= current_timestamp() - expr("INTERVAL 5 MINUTE"))
+            (col("ts") >= current_timestamp() - expr("INTERVAL 1 HOUR"))
         )
 
         # 3. 찾은 최신 값을 프로메테우스 게이지에 반영
