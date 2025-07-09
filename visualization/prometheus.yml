@@ -51,3 +51,24 @@ scrape_configs:
         target_label: group
       - source_labels: [__meta_ec2_instance_type]
         target_label: instance_type
+
+  # AWS EC2 Service Discovery - Sensor
+  - job_name: 'sensor'
+    ec2_sd_configs:
+      - region: ap-northeast-1
+        port: 9990
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: s1
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_private_ip]
+        regex: '(.*)'
+        replacement: '${1}:9990'
+        action: replace
+        target_label: __address__
+      - source_labels: [__meta_ec2_tag_group]
+        target_label: group
+      - source_labels: [__meta_ec2_instance_type]
+        target_label: instance_type

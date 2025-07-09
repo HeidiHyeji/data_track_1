@@ -44,3 +44,19 @@ ssh s1 "
       /home/ec2-user/data_track_1/spark/pipeline/spark_preprocessing_streaming.py
   '
 "
+
+# 4. 메트릭 (s1)
+ssh s1 "
+  tmux has-session -t sensor_metric 2>/dev/null
+  if [ \$? == 0 ]; then
+    echo '🔄 sensor_metric 세션이 이미 존재합니다. 재시작합니다...'
+    tmux kill-session -t sensor_metric
+  fi
+
+  echo '🚀 sensor_metric 세션 시작 중...'
+  tmux new-session -d -s sensor_metric '
+    spark-submit \
+      --packages org.apache.hadoop:hadoop-aws:3.3.4 \
+      /home/ec2-user/data_track_1/spark/pipeline/spark_s3_latest_to_prometheus.py
+  '
+"
