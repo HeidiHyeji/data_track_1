@@ -19,6 +19,18 @@ resource "aws_instance" "monitoring" {
     source      = "script.sh"
     destination = "/tmp/script.sh"
   }
+  provisioner "grafana_installer" {
+    source      = "install_grafana.sh"
+    destination = "/tmp/install_grafana.sh"
+  }
+  provisioner "grafana_datasource" {
+    source      = "import_prometheus_source.sh"
+    destination = "/tmp/import_prometheus_source.sh"
+  }
+  provisioner "grafana_dashboard" {
+    source      = "import_dashboard.sh"
+    destination = "/tmp/import_dashboard.sh"
+  }
   provisioner "promconfig" {
     source      = "prometheus.yml"
     destination = "/tmp/prometheus.yml"
@@ -27,6 +39,24 @@ resource "aws_instance" "monitoring" {
     inline = [
       "chmod +x /tmp/script.sh",
       "sudo /tmp/script.sh"
+    ]
+  }
+  provisioner "remote-exec-grafana-install" {
+    inline = [
+      "chmod +x /tmp/install_grafana.sh",
+      "sudo /tmp/install_grafana.sh"
+    ]
+  }
+  provisioner "remote-exec-grafana-datasource" {
+    inline = [
+      "chmod +x /tmp/import_prometheus_source.sh",
+      "sudo /tmp/import_prometheus_source.sh"
+    ]
+  }
+  provisioner "remote-exec-grafana-dashboard" {
+    inline = [
+      "chmod +x /tmp/install_grafana.sh",
+      "sudo /tmp/install_grafana.sh"
     ]
   }
   connection {
