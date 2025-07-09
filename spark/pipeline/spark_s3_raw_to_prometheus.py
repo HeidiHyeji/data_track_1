@@ -11,7 +11,7 @@ from prometheus_client import start_http_server, Gauge
 S3_RAW_DATA_PATH = "s3a://awsprelab1/fms/raw-data"
 PROMETHEUS_PORT = 9993  # 다른 스크립트와 충돌하지 않는 새 포트
 REFRESH_INTERVAL_SECONDS = 30
-DATA_RETENTION_MINUTES = 20  # 20분 이내의 데이터만 사용
+DATA_RETENTION_MINUTES = 60  # 60분 이내의 데이터만 사용
 
 # --- 프로메테우스 메트릭 정의 ---
 METRIC_LABELS = ['device_id']
@@ -48,7 +48,7 @@ def update_raw_metrics(spark):
         # 2. JSON 파싱 및 컬럼 추출
         df_parsed = df_raw.select(from_json(col("value"), JSON_SCHEMA).alias("data")).select("data.*")
 
-        # 3. 타임스탬프 생성 및 20분 이내 데이터 필터링
+        # 3. 타임스탬프 생성 및 60분 이내 데이터 필터링
         df_with_ts = df_parsed.withColumn("ts", to_timestamp(col("collected_at")))
         time_threshold = datetime.now() - timedelta(minutes=DATA_RETENTION_MINUTES)
         df_recent = df_with_ts.filter(col("ts") >= lit(time_threshold).cast("timestamp"))
