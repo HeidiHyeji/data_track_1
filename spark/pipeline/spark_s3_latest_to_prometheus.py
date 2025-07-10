@@ -32,19 +32,25 @@ def update_latest_metrics(spark):
         # 1. S3에서 Parquet 데이터 읽기
         df = spark.read.parquet(partition_path)
 
-        # 2. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
+        # 2. 타임스탬프 생성 및 60분 이내 데이터 필터링
+        df_with_ts = df.withColumn("ts", to_timestamp(col("collected_at")))
+        time_threshold = datetime.now() - timedelta(minutes=DATA_RETENTION_MINUTES)
+        df_recent = df_with_ts.filter(col("ts") >= lit(time_threshold).cast("timestamp"))
+
+        if df_recent.rdd.isEmpty():
+            print("✅ 처리할 최신 'err' 데이터가 없습니다.")
+            for gauge in LATEST_METRICS.values():
+                gauge.clear()
+            return
+
+        # 4. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
         window_spec = Window.partitionBy("DeviceId").orderBy(col("time").desc())
         df_latest = df_recent.withColumn("rank", row_number().over(window_spec)) \
                              .filter(col("rank") == 1) \
                              .select("DeviceId", "sensor1", "sensor2", "sensor3", "motor1", "motor2", "motor3")
-        
-        # 3. 타임스탬프 생성 및 60분 이내 데이터 필터링
-        df_with_ts = df_latest.withColumn("ts", to_timestamp(col("collected_at")))
-        time_threshold = datetime.now() - timedelta(minutes=DATA_RETENTION_MINUTES)
-        df_recent = df_with_ts.filter(col("ts") >= lit(time_threshold).cast("timestamp"))
 
         # 4. 찾은 최신 값을 프로메테우스 게이지에 반영
-        for row in df_recent.collect():
+        for row in df_latest.collect():
             device_id = str(row["DeviceId"])
             for metric_name, gauge in LATEST_METRICS.items():
                 # 'latest_' 접두사를 제외한 컬럼명으로 값을 가져옴
@@ -52,7 +58,7 @@ def update_latest_metrics(spark):
                 if row[col_name] is not None:
                     gauge.labels(device_id=device_id).set(row[col_name])
         
-        print(f"✅ {df_recent.count()}개 장비의 최신 메트릭을 성공적으로 업데이트했습니다.")
+        print(f"✅ {df_latest.count()}개 장비의 최신 메트릭을 성공적으로 업데이트했습니다.")
 
     except Exception as e:
         print(f"❌ 데이터 처리 중 오류가 발생했습니다: {e}")
