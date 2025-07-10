@@ -14,12 +14,12 @@ DATA_RETENTION_MINUTES = 60  # 60분 이내의 데이터만 사용
 # --- 프로메테우스 메트릭 정의 ---
 # 'device_id'를 라벨로 사용하여 장비별 최신 값을 구분
 LATEST_METRICS = {
-    'latest_sensor1': Gauge('fms_latest_sensor1', 'Latest value of sensor1 for a device', ['device_id']),
-    'latest_sensor2': Gauge('fms_latest_sensor2', 'Latest value of sensor2 for a device', ['device_id']),
-    'latest_sensor3': Gauge('fms_latest_sensor3', 'Latest value of sensor3 for a device', ['device_id']),
-    'latest_motor1': Gauge('fms_latest_motor1', 'Latest value of motor1 for a device', ['device_id']),
-    'latest_motor2': Gauge('fms_latest_motor2', 'Latest value of motor2 for a device', ['device_id']),
-    'latest_motor3': Gauge('fms_latest_motor3', 'Latest value of motor3 for a device', ['device_id']),
+    'sensor1': Gauge('fms_latest_sensor1', 'Latest value of sensor1 for a device', ['device_id']),
+    'sensor2': Gauge('fms_latest_sensor2', 'Latest value of sensor2 for a device', ['device_id']),
+    'sensor3': Gauge('fms_latest_sensor3', 'Latest value of sensor3 for a device', ['device_id']),
+    'motor1': Gauge('fms_latest_motor1', 'Latest value of motor1 for a device', ['device_id']),
+    'motor2': Gauge('fms_latest_motor2', 'Latest value of motor2 for a device', ['device_id']),
+    'motor3': Gauge('fms_latest_motor3', 'Latest value of motor3 for a device', ['device_id']),
 }
 
 def update_latest_metrics(spark):
@@ -38,25 +38,27 @@ def update_latest_metrics(spark):
         df_recent = df_with_ts.filter(col("ts") >= lit(time_threshold).cast("timestamp"))
 
         if df_recent.rdd.isEmpty():
-            print("✅ 처리할 최신 'err' 데이터가 없습니다.")
+            print("✅ 처리할 최신 데이터가 없습니다.")
             for gauge in LATEST_METRICS.values():
                 gauge.clear()
             return
 
-        # 4. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
+        # 3. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
         window_spec = Window.partitionBy("DeviceId").orderBy(col("time").desc())
         df_latest = df_recent.withColumn("rank", row_number().over(window_spec)) \
                              .filter(col("rank") == 1) \
                              .select("DeviceId", "sensor1", "sensor2", "sensor3", "motor1", "motor2", "motor3")
-
+        
         # 4. 찾은 최신 값을 프로메테우스 게이지에 반영
+        for gauge in LATEST_METRICS.values():
+            gauge.clear()
+
         for row in df_latest.collect():
-            device_id = str(row["DeviceId"])
+            labels = {"device_id": str(row["DeviceId"])}
             for metric_name, gauge in LATEST_METRICS.items():
-                # 'latest_' 접두사를 제외한 컬럼명으로 값을 가져옴
-                col_name = metric_name.replace('latest_', '')
-                if row[col_name] is not None:
-                    gauge.labels(device_id=device_id).set(row[col_name])
+                value = row[metric_name]
+                if value is not None:
+                    gauge.labels(**labels).set(float(value))
         
         print(f"✅ {df_latest.count()}개 장비의 최신 메트릭을 성공적으로 업데이트했습니다.")
 
