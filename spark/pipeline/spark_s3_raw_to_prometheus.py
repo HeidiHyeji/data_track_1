@@ -8,7 +8,6 @@ from pyspark.sql.types import StructType, StringType, IntegerType, DoubleType, B
 from prometheus_client import start_http_server, Gauge
 
 # --- 설정 ---
-S3_RAW_DATA_PATH = "s3a://awsprelab1/fms/raw-data"
 PROMETHEUS_PORT = 9993  # 다른 스크립트와 충돌하지 않는 새 포트
 REFRESH_INTERVAL_SECONDS = 30
 DATA_RETENTION_MINUTES = 60  # 60분 이내의 데이터만 사용
@@ -38,12 +37,16 @@ JSON_SCHEMA = StructType() \
     .add("collected_at", StringType())
 
 def update_raw_metrics(spark):
+    now = datetime.now()
+    partition_path = f"s3a://awsprelab1/fms/raw-data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
     """S3의 raw JSON 데이터를 읽고, 장비별 최신 값을 찾아 프로메테우스 메트릭을 업데이트합니다."""
-    print(f"🔄 최신 'raw' 데이터를 찾습니다... (경로: {S3_RAW_DATA_PATH})")
+    print(f"🔄 최신 'raw' 데이터를 찾습니다... (경로: {partition_path})")
     
     try:
+        
         # 1. S3 경로의 JSON 파일 읽기
-        df_raw = spark.read.text(S3_RAW_DATA_PATH)
+        # 1. 파티셔닝된 경로만 읽기
+        df_raw = spark.read.text(partition_path)
         
         # 2. JSON 파싱 및 컬럼 추출
         df_parsed = df_raw.select(from_json(col("value"), JSON_SCHEMA).alias("data")).select("data.*")
@@ -80,7 +83,7 @@ def update_raw_metrics(spark):
 
     except Exception as e:
         if "Path does not exist" in str(e):
-            print(f"⚠️ S3 경로를 찾을 수 없습니다: {S3_RAW_DATA_PATH}. 'raw' 데이터가 아직 없을 수 있습니다.")
+            print(f"⚠️ S3 경로를 찾을 수 없습니다: {partition_path}. 'raw' 데이터가 아직 없을 수 있습니다.")
         else:
             print(f"❌ 데이터 처리 중 오류가 발생했습니다: {e}")
 
