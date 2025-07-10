@@ -5,7 +5,12 @@ import datetime
 import sys
 
 def process_device(device_id, ymdh, bucket, base_prefix, output_prefix, s3, fs):
-    prefix = f"{base_prefix}DeviceId={device_id}/ymdh={ymdh}/"
+    yyyy = ymdh[:4]
+    mm = ymdh[4:6]
+    dd = ymdh[6:8]
+    hh = ymdh[8:]
+
+    prefix = f"{base_prefix}{yyyy}/{mm}/{dd}/{hh}/{device_id}/"
     resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
     if 'Contents' not in resp:
         print(f"[WARN] Device {device_id} 경로에 파일 없음: {prefix}")
@@ -26,7 +31,7 @@ def process_device(device_id, ymdh, bucket, base_prefix, output_prefix, s3, fs):
     agg = device_df[["sensor1", "sensor2", "sensor3", "motor1", "motor2", "motor3"]].mean()
 
     ymdh_date = ymdh[:8]  # YYYYMMDD
-    ymdh_hour = ymdh[8:]  # HH
+    ymdh_hour = ymdh[8:]   # HH
 
     lines = [f"[집계 데이터 : {ymdh_date} - {ymdh_hour}]"]
     lines.append(f"motor1_avg : {round(agg['motor1'], 2)}")
@@ -38,7 +43,7 @@ def process_device(device_id, ymdh, bucket, base_prefix, output_prefix, s3, fs):
     content = "\n".join(lines)
 
     filename = f"aggregate_device_{device_id}.text"
-    key = f"{output_prefix}/ymdh={ymdh}/{filename}"
+    key = f"{output_prefix}/{ymdh_date}/{ymdh_hour}/{filename}"
 
     s3.put_object(Bucket=bucket, Key=key, Body=content.encode("utf-8"))
     print(f"[INFO] Device {device_id} 집계 완료 및 저장: s3://{bucket}/{key}")
