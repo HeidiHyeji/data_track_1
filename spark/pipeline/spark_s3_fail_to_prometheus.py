@@ -38,7 +38,7 @@ JSON_SCHEMA = StructType() \
 
 def update_fail_metrics(spark):
     now = datetime.now()
-    partition_path = f"s3a://awsprelab1/fms/analytics_parquet/fail/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
+    partition_path = f"s3a://awsprelab1/fms/analytics_parquet/fail/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}/*"
     """S3의 fail JSON 데이터를 읽고, 장비별 최신 값을 찾아 프로메테우스 메트릭을 업데이트합니다."""
     print(f"🔄 최신 'fail' 데이터를 찾습니다... (경로: {partition_path})")
     

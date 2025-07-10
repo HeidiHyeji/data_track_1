@@ -37,7 +37,7 @@ JSON_SCHEMA = StructType() \
 
 def update_raw_metrics(spark):
     now = datetime.now()
-    partition_path = f"s3a://awsprelab1/fms/raw-data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
+    partition_path = f"s3a://awsprelab1/fms/raw-data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}/"
     """S3의 raw JSON 데이터를 읽고, 장비별 최신 값을 찾아 프로메테우스 메트릭을 업데이트합니다."""
     print(f"🔄 최신 'raw' 데이터를 찾습니다... (경로: {partition_path})")
     
@@ -45,12 +45,9 @@ def update_raw_metrics(spark):
         
         # 1. S3 경로의 JSON 파일 읽기
         # 1. 파티셔닝된 경로만 읽기
-        df_raw = spark.read.text(partition_path)
-        
-        # 2. JSON 파싱 및 컬럼 추출
-        df_parsed = df_raw.select(from_json(col("value"), JSON_SCHEMA).alias("data")).select("data.*")
+        df_raw = spark.read.schema(JSON_SCHEMA).option("multiline", "true").json(partition_path)
 
-        if df_parsed.rdd.isEmpty():
+        if df_raw.rdd.isEmpty():
             print("✅ 처리할 최신 'raw' 데이터가 없습니다.")
             for gauge in RAW_METRICS.values():
                 gauge.clear()
@@ -58,7 +55,7 @@ def update_raw_metrics(spark):
 
         # 3. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
         window_spec = Window.partitionBy("DeviceId").orderBy(col("time").desc())
-        df_latest = df_parsed.withColumn("rank", row_number().over(window_spec)) \
+        df_latest = df_raw.withColumn("rank", row_number().over(window_spec)) \
                              .filter(col("rank") == 1) \
                              .select("DeviceId", "sensor1", "sensor2", "sensor3", "motor1", "motor2", "motor3")
 

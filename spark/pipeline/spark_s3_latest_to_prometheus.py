@@ -24,7 +24,7 @@ LATEST_METRICS = {
 
 def update_latest_metrics(spark):
     now = datetime.now()
-    partition_path = f"s3a://awsprelab1/fms/analytics_parquet/data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
+    partition_path = f"s3a://awsprelab1/fms/analytics_parquet/data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}/*"
     """S3의 JSON 데이터를 읽고, 장비별 최신 값을 찾아 프로메테우스 메트릭을 업데이트합니다."""
     print(f"🔄 최신 데이터를 찾습니다... (경로: {partition_path})")
     
