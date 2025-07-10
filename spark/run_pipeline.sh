@@ -77,7 +77,23 @@ ssh s1 "
   '
 "
 
-# 6. 메트릭 - raw (s1)
+# 6. 메트릭 - fail (s1)
+ssh s1 "
+  tmux has-session -t sensor_metric_fail 2>/dev/null
+  if [ \$? == 0 ]; then
+    echo '🔄 sensor_metric_fail 세션이 이미 존재합니다. 재시작합니다...'
+    tmux kill-session -t sensor_metric_fail
+  fi
+
+  echo '🚀 sensor_metric_fail 세션 시작 중...'
+  tmux new-session -d -s sensor_metric_fail '
+    spark-submit \
+      --packages org.apache.hadoop:hadoop-aws:3.3.4 \
+      /home/ec2-user/data_track_1/spark/pipeline/spark_s3_fail_to_prometheus.py
+  '
+"
+
+# 7. 메트릭 - raw (s1)
 ssh s1 "
   tmux has-session -t sensor_metric_raw 2>/dev/null
   if [ \$? == 0 ]; then
