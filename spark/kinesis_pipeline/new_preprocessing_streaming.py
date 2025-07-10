@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_timestamp, year, month, dayofmonth, hour, from_utc_timestamp
+from pyspark.sql.functions import col, to_timestamp, year, month, dayofmonth, hour
 from pyspark.sql.types import StructType, StringType, IntegerType, DoubleType, BooleanType
 
 # Spark 세션 생성
@@ -29,9 +29,11 @@ df_raw = spark.readStream \
     .option("maxFilesPerTrigger", 1) \
     .load("s3a://awsprelab1/fms/raw-data/*/*/*/*/*.json")
 
-# 시간 및 파티션용 컬럼 생성 (KST 기준)
+# 중복 제거: time + DeviceId 기준 (필요시 다른 컬럼 추가 가능)
+df_raw = df_raw.dropDuplicates(["time", "DeviceId"])
+
+# 시간 및 파티션용 컬럼 생성 (UTC 기준)
 df = df_raw \
-    .withColumn("ts_utc", to_timestamp(col("time"))) \
     .withColumn("ts", to_timestamp(col("time"))) \
     .withColumn("year", year(col("ts"))) \
     .withColumn("month", month(col("ts"))) \
@@ -54,7 +56,8 @@ valid_range = (
 df_correct = df.filter((col("isFail") == False) & valid_range)
 df_dataerr = df.filter((col("isFail") == False) & (~valid_range))
 df_fail = df.filter(col("isFail") == True)
-# 배치 저장 함수: 디렉토리 직접 구성
+
+# 배치 저장 함수
 def write_batch_to_custom_path(batch_df, batch_id, category):
     batch_df_local = batch_df.withColumn("YYYY", col("year")) \
                              .withColumn("MM", col("month")) \
@@ -85,7 +88,6 @@ def write_batch_to_custom_path(batch_df, batch_id, category):
             ) \
             .drop("YYYY", "MM", "DD", "HH", "ID") \
             .write.mode("append").parquet(path)
-
 
 # 스트리밍 시작
 query_data = df_correct.writeStream \
