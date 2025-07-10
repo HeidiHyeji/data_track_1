@@ -9,8 +9,7 @@ from prometheus_client import start_http_server, Gauge
 
 # --- 설정 ---
 PROMETHEUS_PORT = 9993  # 다른 스크립트와 충돌하지 않는 새 포트
-REFRESH_INTERVAL_SECONDS = 30
-DATA_RETENTION_MINUTES = 60  # 60분 이내의 데이터만 사용
+REFRESH_INTERVAL_SECONDS = 30  # 30초마다 데이터 갱신
 
 # --- 프로메테우스 메트릭 정의 ---
 METRIC_LABELS = ['device_id']
@@ -38,7 +37,7 @@ JSON_SCHEMA = StructType() \
 
 def update_raw_metrics(spark):
     now = datetime.now()
-    partition_path = f"s3a://awsprelab1/fms/raw-data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
+    partition_path = f"s3a://awsprelab1/fms/raw-data/{now.year:04d}/{now.month:02d}/{now.day:02d}/{now.hour:02d}/"
     """S3의 raw JSON 데이터를 읽고, 장비별 최신 값을 찾아 프로메테우스 메트릭을 업데이트합니다."""
     print(f"🔄 최신 'raw' 데이터를 찾습니다... (경로: {partition_path})")
     
@@ -46,29 +45,21 @@ def update_raw_metrics(spark):
         
         # 1. S3 경로의 JSON 파일 읽기
         # 1. 파티셔닝된 경로만 읽기
-        df_raw = spark.read.text(partition_path)
-        
-        # 2. JSON 파싱 및 컬럼 추출
-        df_parsed = df_raw.select(from_json(col("value"), JSON_SCHEMA).alias("data")).select("data.*")
+        df_raw = spark.read.schema(JSON_SCHEMA).option("multiline", "true").json(partition_path)
 
-        # 3. 타임스탬프 생성 및 60분 이내 데이터 필터링
-        df_with_ts = df_parsed.withColumn("ts", to_timestamp(col("collected_at")))
-        time_threshold = datetime.now() - timedelta(minutes=DATA_RETENTION_MINUTES)
-        df_recent = df_with_ts.filter(col("ts") >= lit(time_threshold).cast("timestamp"))
-
-        if df_recent.rdd.isEmpty():
+        if df_raw.rdd.isEmpty():
             print("✅ 처리할 최신 'raw' 데이터가 없습니다.")
             for gauge in RAW_METRICS.values():
                 gauge.clear()
             return
 
-        # 4. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
+        # 3. 각 DeviceId 내에서 time 컬럼을 기준으로 최신 레코드 찾기
         window_spec = Window.partitionBy("DeviceId").orderBy(col("time").desc())
-        df_latest = df_recent.withColumn("rank", row_number().over(window_spec)) \
+        df_latest = df_raw.withColumn("rank", row_number().over(window_spec)) \
                              .filter(col("rank") == 1) \
                              .select("DeviceId", "sensor1", "sensor2", "sensor3", "motor1", "motor2", "motor3")
 
-        # 5. 찾은 최신 값을 프로메테우스 게이지에 반영
+        # 4. 찾은 최신 값을 프로메테우스 게이지에 반영
         for gauge in RAW_METRICS.values():
             gauge.clear()
             

@@ -73,9 +73,54 @@ scrape_configs:
         target_label: group
       - source_labels: [__meta_ec2_instance_type]
         target_label: instance_type
+    scrape_interval: 1m
+
+  # AWS EC2 Service Discovery - Sensor - Error
+  - job_name: 'sensor-error'
+    ec2_sd_configs:
+      - region: ap-northeast-1
+        port: 9991
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: s1
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_private_ip]
+        regex: '(.*)'
+        replacement: '${1}:9991'
+        action: replace
+        target_label: __address__
+      - source_labels: [__meta_ec2_tag_group]
+        target_label: group
+      - source_labels: [__meta_ec2_instance_type]
+        target_label: instance_type
+    scrape_interval: 1m
+
+  # AWS EC2 Service Discovery - Sensor - Fail
+  - job_name: 'sensor-fail'
+    ec2_sd_configs:
+      - region: ap-northeast-1
+        port: 9992
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: s1
+        action: keep
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_private_ip]
+        regex: '(.*)'
+        replacement: '${1}:9992'
+        action: replace
+        target_label: __address__
+      - source_labels: [__meta_ec2_tag_group]
+        target_label: group
+      - source_labels: [__meta_ec2_instance_type]
+        target_label: instance_type
+    scrape_interval: 1m
 
   # AWS EC2 Service Discovery - Sensor Raw
-  - job_name: 'sensor'
+  - job_name: 'sensor-raw'
     ec2_sd_configs:
       - region: ap-northeast-1
         port: 9993
