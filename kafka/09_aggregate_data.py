@@ -66,7 +66,8 @@ def main(ymdh):
 
     processed_count = 0
     for device_id in range(1, 101):
-        success = process_device(device_id, ymdh, bucket, base_prefix, output_prefix, s3, fs)
+        device_str = f"{device_id:02d}"  # 2자리 0채움
+        success = process_device(device_str, ymdh, bucket, base_prefix, output_prefix, s3, fs)
         if success:
             processed_count += 1
 
@@ -76,9 +77,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         ymdh = sys.argv[1]
     else:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.utcnow() + datetime.timedelta(hours=9)  # KST 변환
         prev_hour = now - datetime.timedelta(hours=1)
         ymdh = prev_hour.strftime("%Y%m%d%H")
-        print(f"[INFO] 인자 없어서 자동으로 1시간 전({ymdh}) 데이터 집계")
+        print(f"[INFO] 인자 없어서 자동으로 1시간 전({ymdh}) 데이터 집계 (KST 기준)")
 
     main(ymdh)
